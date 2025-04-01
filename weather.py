@@ -4,40 +4,48 @@ from dotenv import load_dotenv
 import json
 from datetime import date
 import pandas as pd
+import psycopg2
 
 load_dotenv()
 
 API_KEY = os.environ['API_KEY']
 
-'''
+
 lat = 40.6782
 lon = -73.9442
-url = f'https://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&exclude={exclusion}&appid={API_KEY}&units={units}'
-'''
+url = f'https://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&exclude=current,minutely,hourly,alerts&appid={API_KEY}&units=imperial'
 
-def get_weather_data(lat, lon):
-    url = f'https://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&exclude=current,minutely,hourly,alerts&appid={API_KEY}&units=imperial'
-    weather_data_json = json.loads(requests.get(url).text)
-    return weather_data_json
+Bklyn = {
+    'lat':lat,
+    'long': lon
+}
 
-def extract_data():
-    BklynNY = (40.6782, -73.9442)
-    MesaAZ = (33.4152, -111.8315)
-    YellowknifeCA = (62.4540, -114.3718)
+def extract_data(loc):
+    url = f'https://api.openweathermap.org/data/3.0/onecall?lat={loc['lat']}&lon={loc['long']}&exclude=current,minutely,hourly,alerts&appid={API_KEY}&units=imperial'
+    parsed = json.loads(requests.get(url).text)
+    # weather_data_json = json.dumps(parsed, indent=4)
+    return parsed
 
+def transform_data(data):
+    weather_type = data['daily'][0]['weather'][0]['main']
+    high = data['daily'][0]['temp']['max']
+    low = data['daily'][0]['temp']['min']
+    humidity = data['daily'][0]['humidity']
     weather_data = {
-        'Brooklyn': get_weather_data(BklynNY[0], BklynNY[1]),
-        'Mesa': get_weather_data(MesaAZ[0], MesaAZ[1]),
-        'Yellowknife' : get_weather_data(YellowknifeCA[0],YellowknifeCA[1])
+        'date' : [date.today().strftime('%Y-%m-%d')],
+        'timezone' : [data['timezone']],
+        'weather' : [weather_type],
+        'temp high': [high],
+        'temp low': [low],
+        'temp avg': [(high+low)/2],
+        'humidity' : [humidity]
     }
-
     return weather_data
 
-
-def transform_weather_data(data):
-    today = date.today().strftime('%Y-%m-%d')
-
+def load_data(data):
+    df = pd.DataFrame(data)
     
+
 
 
 
