@@ -1,3 +1,8 @@
+#Note: This piepline queries the 'OpenWeatherMap One Call API 3.0' to extract weather data based
+#on latitude and longitude. In order to access this API you will need to create an account on 'https://openweathermap.org/api'
+#and get an API key.
+
+#Importing necessary libraries
 import os
 import requests
 import configparser
@@ -7,18 +12,20 @@ import pandas as pd
 from dotenv import load_dotenv
 from datetime import date
 
-config = configparser.ConfigParser()
+#Instantiating a ConfigParser and read the 'cites.cfg' file 
+city_config = configparser.ConfigParser()
+city_config.read('cities.cfg')
 
+#Load from '.env' file and capture environment variables 
 load_dotenv()
-
+#Store the environment variables
 API_KEY = os.environ['API_KEY']
 PG_USER = os.environ['PG_USER']
 PG_PASSWORD = os.environ['PG_PASSWORD']
 PORT = os.environ['PORT']
 DB = os.environ['DB']
 
-config.read('cities.cfg')
-
+#Test data for API queries
 # lat = 40.6782
 # lon = -73.9442
 # url = f'https://api.openweathermap.org/data/3.0/onecall?lat={lat}&lon={lon}&exclude=current,minutely,hourly,alerts&appid={API_KEY}&units=imperial'
@@ -33,13 +40,15 @@ config.read('cities.cfg')
 #     'lat':33.4152,
 #     'long': -111.8315
 # }
+#Test driver code to see queried JSON data structure
 #print(json.dumps(json.loads(requests.get(url).text), indent=4))
 
 # test_array = [Bklyn, Mesa]
 
+#Parse the city_config object into an array of location dictionaries
 def parse_config():
     array = []
-    for key, value in config['Cities'].items():
+    for key, value in city_config['Cities'].items():
         if key[:4].lower() == 'city':
             temp = {
                 'city': value,
@@ -53,16 +62,17 @@ def parse_config():
             array.append(temp)
     return array
 
+#Use an array of location dictionaries to extract data by querying the API
 def extract_data(loc_arr):
     raw_data = []
     for loc in loc_arr:
         url = f'https://api.openweathermap.org/data/3.0/onecall?lat={loc['lat']}&lon={loc['long']}&exclude=current,minutely,hourly,alerts&appid={API_KEY}&units=imperial'
+        #Wrapped in a 'try except' in the case of an exception the loop bypasses appending data to the extracted data array
         try:
             parsed = json.loads(requests.get(url).text)
         except:
             continue
         city = loc['city']
-        # weather_data_json = json.dumps(parsed, indent=4)
         raw_forecast_data = {
             'city':city,
             'parsed':parsed
@@ -71,7 +81,7 @@ def extract_data(loc_arr):
 
     return raw_data
 
-
+#Transform the raw data into a 
 def transform_data(data):
     weather_data = {
         'city' : [],
@@ -99,11 +109,8 @@ def load_data(data):
     df = pd.DataFrame(data)
     engine = sa.create_engine(f'postgresql://{PG_USER}:{PG_PASSWORD}@localhost:{PORT}/{DB}')
     df.to_sql('weather_data',engine,if_exists='append',index=False)
+    engine.dispose()
 
 
 
 load_data(transform_data(extract_data(parse_config())))
-
-
-
-
